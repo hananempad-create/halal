@@ -1,0 +1,62 @@
+/* layout.css – shared sidebar+main layout */
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',sans-serif;display:flex;min-height:100vh;background:#f0f2f5}
+.sidebar{width:250px;background:linear-gradient(180deg,#2e7d32,#1b5e20);color:#fff;display:flex;flex-direction:column;position:fixed;height:100vh;top:0;left:0;z-index:100}
+.sidebar-brand{padding:22px 18px;background:rgba(0,0,0,.15);text-align:center;border-bottom:1px solid rgba(255,255,255,.1)}
+.sidebar-brand h2{font-size:14px;font-weight:700;color:#fff;line-height:1.5}
+.sidebar-user{padding:14px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.1)}
+.avatar{width:36px;height:36px;background:#81c784;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:#1b5e20;flex-shrink:0}
+.sidebar-user span{font-size:13px;color:rgba(255,255,255,.85);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sidebar-nav{flex:1;padding:10px 0;overflow-y:auto}
+.nav-label{font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:rgba(255,255,255,.4);padding:12px 18px 4px}
+.sidebar-nav a{display:flex;align-items:center;gap:10px;padding:10px 18px;color:rgba(255,255,255,.8);text-decoration:none;font-size:13.5px;transition:background .2s}
+.sidebar-nav a:hover,.sidebar-nav a.active{background:rgba(255,255,255,.12);color:#fff}
+.sidebar-footer{padding:14px 18px;border-top:1px solid rgba(255,255,255,.1)}
+.sidebar-footer a{color:rgba(255,255,255,.7);text-decoration:none;font-size:13px;display:flex;align-items:center;gap:8px}
+.sidebar-footer a:hover{color:#fff}
+.main{margin-left:250px;padding:30px;flex:1;min-width:0}
+.page-header{margin-bottom:24px}
+.page-header h1{font-size:22px;color:#1b5e20;font-weight:700}
+.page-header p{color:#666;font-size:13.5px;margin-top:4px}
+/* Cards */
+.card{background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:hidden}
+.card-body{padding:24px}
+/* Forms */
+.form-group{margin-bottom:18px}
+.form-group label{display:block;font-size:13px;font-weight:600;color:#444;margin-bottom:6px}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:10px 14px;border:1.5px solid #ddd;border-radius:8px;font-size:13.5px;color:#333;outline:none;transition:border .2s}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:#2e7d32}
+.form-group textarea{resize:vertical;min-height:80px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+/* Buttons */
+.btn{padding:10px 24px;background:linear-gradient(135deg,#2e7d32,#1b5e20);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;transition:opacity .2s}
+.btn:hover{opacity:.9}
+.btn-sm{padding:6px 14px;font-size:12px;border-radius:6px}
+.btn-danger{background:linear-gradient(135deg,#c62828,#b71c1c)}
+.btn-warning{background:linear-gradient(135deg,#f57f17,#e65100)}
+.btn-info{background:linear-gradient(135deg,#0277bd,#01579b)}
+/* Alerts */
+.alert{padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:18px}
+.alert.success{background:#e8f5e9;color:#2e7d32}
+.alert.error{background:#fce4ec;color:#c62828}
+/* Table */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th,td{padding:12px 16px;text-align:left;font-size:13px}
+th{background:#f9fafb;color:#555;font-weight:600;border-bottom:1px solid #eee;white-space:nowrap}
+td{border-bottom:1px solid #f5f5f5;color:#333}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafafa}
+/* Badges */
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.badge.active{background:#e8f5e9;color:#2e7d32}
+.badge.expired{background:#fce4ec;color:#c62828}
+.badge.revoked{background:#fff3e0;color:#e65100}
+.badge.valid{background:#e8f5e9;color:#2e7d32}
+.badge.invalid{background:#fce4ec;color:#c62828}
+.empty-state{text-align:center;padding:40px 20px;color:#aaa;font-size:14px}
+.empty-state .big{font-size:40px;margin-bottom:10px}
+/* Search bar */
+.search-bar{display:flex;gap:10px;margin-bottom:20px;align-items:center;flex-wrap:wrap}
+.search-bar input{padding:9px 14px;border:1.5px solid #ddd;border-radius:8px;font-size:13.5px;outline:none;min-width:220px;flex:1;transition:border .2s}
+.search-bar input:focus{border-color:#2e7d32}
