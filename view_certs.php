@@ -45,6 +45,12 @@ if (isset($_GET['edit']) && is_numeric($_GET['edit'])) {
 $vendors = $conn->query("SELECT id, business_name FROM vendors ORDER BY business_name ASC");
 $vendor_list = [];
 if ($vendors) { while($v=$vendors->fetch_assoc()) $vendor_list[] = $v; }
+
+// Build base URL for verify page — QR will encode this full URL
+$protocol    = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$base_url    = $protocol . '://' . $_SERVER['HTTP_HOST'];
+$dir         = rtrim(dirname($_SERVER['PHP_SELF']), '/\\');
+$verify_base = $base_url . $dir . '/verify.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -52,6 +58,7 @@ if ($vendors) { while($v=$vendors->fetch_assoc()) $vendor_list[] = $v; }
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>View Certifications – Halal Hub</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Segoe UI',sans-serif;display:flex;min-height:100vh;background:#f0f2f5}
@@ -82,6 +89,7 @@ body{font-family:'Segoe UI',sans-serif;display:flex;min-height:100vh;background:
 .btn-sm{padding:6px 12px;font-size:12px}
 .btn-warning{background:linear-gradient(135deg,#f57f17,#e65100)}
 .btn-danger{background:linear-gradient(135deg,#c62828,#b71c1c)}
+.btn-qr{background:linear-gradient(135deg,#0277bd,#01579b)}
 .card{background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:hidden}
 .table-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse}
@@ -96,7 +104,8 @@ tr:hover td{background:#fafafa}
 .badge.revoked{background:#fff3e0;color:#e65100}
 .empty-state{text-align:center;padding:40px 20px;color:#aaa;font-size:14px}
 .empty-state .big{font-size:40px;margin-bottom:10px}
-.qr-token{font-family:monospace;font-size:11px;color:#888}
+
+/* Edit Modal */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;justify-content:center;align-items:center}
 .modal-bg.open{display:flex}
 .modal{background:#fff;border-radius:14px;padding:30px;width:100%;max-width:580px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
@@ -108,6 +117,36 @@ tr:hover td{background:#fafafa}
 .form-group textarea{resize:vertical;min-height:70px}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .modal-footer{margin-top:20px;display:flex;gap:10px}
+
+/* QR Modal */
+.qr-modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;justify-content:center;align-items:center}
+.qr-modal-bg.open{display:flex}
+.qr-modal{background:#fff;border-radius:20px;padding:28px 24px;width:100%;max-width:400px;box-shadow:0 24px 80px rgba(0,0,0,.3);text-align:center;position:relative}
+.qr-modal-close{position:absolute;top:14px;right:16px;background:none;border:none;font-size:20px;cursor:pointer;color:#aaa}
+.qr-modal-close:hover{color:#333}
+/* Card preview inside modal */
+.qr-card-preview{background:#fff;border:2px solid #e8f5e9;border-radius:14px;overflow:hidden;margin-bottom:18px}
+.qr-card-header-bar{background:linear-gradient(135deg,#2e7d32,#1b5e20);padding:14px 16px;text-align:left;display:flex;align-items:center;justify-content:space-between}
+.qr-card-header-bar .titles h4{font-size:13px;font-weight:700;color:#fff;margin-bottom:2px}
+.qr-card-header-bar .titles p{font-size:10px;color:rgba(255,255,255,.7)}
+.qr-card-header-bar .mosque-icon{font-size:28px}
+.qr-card-body{padding:18px 18px 14px}
+.qr-card-qr{display:flex;justify-content:center;margin-bottom:14px}
+.qr-card-qr canvas,.qr-card-qr img{border-radius:6px;border:3px solid #e8f5e9}
+.qr-card-business{font-size:15px;font-weight:700;color:#1b5e20;margin-bottom:4px}
+.qr-card-certnum{font-size:11px;font-family:monospace;color:#888;margin-bottom:8px}
+.qr-card-status{display:inline-block;padding:3px 14px;border-radius:20px;font-size:11px;font-weight:700;margin-bottom:10px}
+.qr-card-status.active{background:#e8f5e9;color:#2e7d32}
+.qr-card-status.expired{background:#fce4ec;color:#c62828}
+.qr-card-status.revoked{background:#fff3e0;color:#e65100}
+.qr-card-expiry{font-size:11px;color:#aaa;margin-bottom:10px}
+.qr-card-footer-bar{background:#f9fafb;border-top:1px solid #eee;padding:8px;font-size:10px;color:#bbb}
+.qr-modal-actions{display:flex;gap:10px;justify-content:center}
+.btn-download{padding:11px 24px;background:linear-gradient(135deg,#2e7d32,#1b5e20);color:#fff;border:none;border-radius:8px;font-size:13.5px;font-weight:600;cursor:pointer}
+.btn-download:hover{opacity:.9}
+.btn-close-qr{padding:11px 24px;background:#f0f2f5;color:#555;border:none;border-radius:8px;font-size:13.5px;font-weight:600;cursor:pointer}
+.btn-close-qr:hover{background:#e0e0e0}
+#downloadCanvas{display:none}
 </style>
 </head>
 <body>
@@ -155,12 +194,14 @@ tr:hover td{background:#fafafa}
         <div class="table-wrap">
             <table>
                 <thead>
-                    <tr><th>#</th><th>Cert Number</th><th>Business</th><th>Issuing Body</th><th>Issue Date</th><th>Expiry Date</th><th>Status</th><th>QR Token</th><th>Actions</th></tr>
+                    <tr><th>#</th><th>Cert Number</th><th>Business</th><th>Issuing Body</th><th>Issue Date</th><th>Expiry Date</th><th>Status</th><th>QR Code</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
                 <?php if($certs && $certs->num_rows > 0): $i=1; while($c=$certs->fetch_assoc()):
-                    $qr_res = $conn->query("SELECT qr_token FROM qr_codes WHERE cert_id=".$c['id']." LIMIT 1");
+                    $qr_res   = $conn->query("SELECT qr_token FROM qr_codes WHERE cert_id=".$c['id']." LIMIT 1");
                     $qr_token = ($qr_res && $qr_res->num_rows > 0) ? $qr_res->fetch_assoc()['qr_token'] : null;
+                    // Full verify URL — scanning the QR goes straight to the result page
+                    $verify_url = $verify_base . '?search_type=qr&search_val=' . urlencode($qr_token ?? '');
                 ?>
                 <tr>
                     <td><?php echo $i++; ?></td>
@@ -172,9 +213,15 @@ tr:hover td{background:#fafafa}
                     <td><span class="badge <?php echo strtolower($c['status']); ?>"><?php echo $c['status']; ?></span></td>
                     <td>
                         <?php if($qr_token): ?>
-                            <span class="qr-token" title="<?php echo htmlspecialchars($qr_token); ?>"><?php echo substr($qr_token,0,12).'…'; ?></span>
+                            <button class="btn btn-sm btn-qr qr-btn"
+                                data-url="<?php echo htmlspecialchars($verify_url, ENT_QUOTES); ?>"
+                                data-cert="<?php echo htmlspecialchars($c['cert_number'], ENT_QUOTES); ?>"
+                                data-biz="<?php echo htmlspecialchars($c['business_name'], ENT_QUOTES); ?>"
+                                data-status="<?php echo strtolower($c['status']); ?>"
+                                data-expiry="<?php echo $c['expiry_date']; ?>"
+                            >🔳 View QR</button>
                         <?php else: ?>
-                            <span style="color:#ccc;font-size:12px">—</span>
+                            <span style="color:#ccc;font-size:12px">No QR</span>
                         <?php endif; ?>
                     </td>
                     <td style="white-space:nowrap">
@@ -199,6 +246,40 @@ tr:hover td{background:#fafafa}
     </div>
 </div>
 
+<!-- ========== QR CODE MODAL ========== -->
+<div class="qr-modal-bg" id="qrModalBg">
+    <div class="qr-modal">
+        <button class="qr-modal-close" onclick="closeQR()">✕</button>
+
+        <div class="qr-card-preview" id="qrCardPreview">
+            <div class="qr-card-header-bar">
+                <div class="titles">
+                    <h4>Halal Certification Hub</h4>
+                    <p>Official Halal Certificate</p>
+                </div>
+                <span class="mosque-icon">🕌</span>
+            </div>
+            <div class="qr-card-body">
+                <div class="qr-card-qr"><div id="qrCodeEl"></div></div>
+                <div class="qr-card-business" id="qrCardBusiness"></div>
+                <div class="qr-card-certnum"  id="qrCardCertNum"></div>
+                <span class="qr-card-status"  id="qrCardStatus"></span>
+                <div class="qr-card-expiry"   id="qrCardExpiry"></div>
+            </div>
+            <div class="qr-card-footer-bar">Scan QR code to verify this certification online</div>
+        </div>
+
+        <div class="qr-modal-actions">
+            <button class="btn-download" onclick="downloadQR()">⬇️ Download QR Card</button>
+            <button class="btn-close-qr" onclick="closeQR()">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden canvas for PNG composition -->
+<canvas id="downloadCanvas"></canvas>
+
+<!-- ========== EDIT MODAL ========== -->
 <?php if($edit_cert): ?>
 <div class="modal-bg open">
     <div class="modal">
@@ -239,6 +320,202 @@ tr:hover td{background:#fafafa}
     </div>
 </div>
 <?php endif; ?>
+
+<script>
+let currentQR = {};
+
+function showQR(verifyUrl, certNum, business, status, expiryDate) {
+    currentQR = { verifyUrl, certNum, business, status, expiryDate };
+
+    document.getElementById('qrCodeEl').innerHTML = '';
+
+    document.getElementById('qrCardBusiness').textContent = business;
+    document.getElementById('qrCardCertNum').textContent  = certNum;
+    document.getElementById('qrCardExpiry').textContent   = 'Valid until: ' + expiryDate;
+
+    const statusEl = document.getElementById('qrCardStatus');
+    statusEl.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+    statusEl.className   = 'qr-card-status ' + status;
+
+    // QR encodes the full verify URL — scanning redirects straight to verification result
+    new QRCode(document.getElementById('qrCodeEl'), {
+        text: verifyUrl,
+        width: 180,
+        height: 180,
+        colorDark: '#1b5e20',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
+    });
+
+    document.getElementById('qrModalBg').classList.add('open');
+}
+
+function closeQR() {
+    document.getElementById('qrModalBg').classList.remove('open');
+    document.getElementById('qrCodeEl').innerHTML = '';
+}
+
+function downloadQR() {
+    setTimeout(() => {
+        const qrEl     = document.getElementById('qrCodeEl');
+        const qrCanvas = qrEl.querySelector('canvas');
+        const qrImg    = qrEl.querySelector('img');
+        let qrDataUrl  = qrCanvas ? qrCanvas.toDataURL('image/png') : (qrImg ? qrImg.src : null);
+
+        if (!qrDataUrl) { alert('QR not ready, please try again.'); return; }
+
+        const qrImage = new Image();
+        qrImage.onload = function () {
+            const W = 500, H = 640;
+            const canvas = document.getElementById('downloadCanvas');
+            canvas.width = W; canvas.height = H;
+            const ctx = canvas.getContext('2d');
+
+            // White card background
+            ctx.fillStyle = '#ffffff';
+            roundRect(ctx, 0, 0, W, H, 20);
+            ctx.fill();
+
+            // Green header
+            const grad = ctx.createLinearGradient(0, 0, W, 120);
+            grad.addColorStop(0, '#2e7d32');
+            grad.addColorStop(1, '#1b5e20');
+            ctx.fillStyle = grad;
+            roundRect(ctx, 0, 0, W, 115, [20, 20, 0, 0]);
+            ctx.fill();
+
+            // Mosque emoji
+            ctx.font = '46px serif';
+            ctx.textAlign = 'right';
+            ctx.fillText('🕌', W - 22, 68);
+
+            // Header text
+            ctx.textAlign = 'left';
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 18px "Segoe UI", Arial, sans-serif';
+            ctx.fillText('Halal Certification Hub', 24, 50);
+            ctx.font = '13px "Segoe UI", Arial, sans-serif';
+            ctx.fillStyle = 'rgba(255,255,255,0.72)';
+            ctx.fillText('Official Halal Certificate', 24, 72);
+
+            // Separator
+            ctx.fillStyle = '#e8f5e9';
+            ctx.fillRect(0, 115, W, 3);
+
+            // QR box
+            const qrSize = 210, qrX = (W - qrSize) / 2, qrY = 138;
+            ctx.fillStyle = '#f1f8f1';
+            roundRect(ctx, qrX - 14, qrY - 14, qrSize + 28, qrSize + 28, 16);
+            ctx.fill();
+            ctx.strokeStyle = '#c8e6c9'; ctx.lineWidth = 2; ctx.stroke();
+            ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize);
+
+            // Business name
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#1b5e20';
+            ctx.font = 'bold 22px "Segoe UI", Arial, sans-serif';
+            let nameY = qrY + qrSize + 50;
+            nameY = wrapText(ctx, currentQR.business, W / 2, nameY, W - 60, 30);
+
+            // Cert number
+            ctx.font = '13px monospace';
+            ctx.fillStyle = '#888888';
+            ctx.fillText(currentQR.certNum, W / 2, nameY + 10);
+
+            // Status badge
+            const statusLabel = currentQR.status.charAt(0).toUpperCase() + currentQR.status.slice(1);
+            const bc = {
+                active:  { bg:'#e8f5e9', text:'#2e7d32', border:'#a5d6a7' },
+                expired: { bg:'#fce4ec', text:'#c62828', border:'#ef9a9a' },
+                revoked: { bg:'#fff3e0', text:'#e65100', border:'#ffcc80' }
+            }[currentQR.status] || { bg:'#e8f5e9', text:'#2e7d32', border:'#a5d6a7' };
+
+            const bW = 130, bH = 30, bX = (W - bW) / 2, bY = nameY + 26;
+            ctx.fillStyle = bc.bg; ctx.strokeStyle = bc.border; ctx.lineWidth = 1.5;
+            roundRect(ctx, bX, bY, bW, bH, 15); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = bc.text;
+            ctx.font = 'bold 13px "Segoe UI", Arial, sans-serif';
+            ctx.fillText(statusLabel, W / 2, bY + 21);
+
+            // Expiry
+            ctx.font = '12px "Segoe UI", Arial, sans-serif';
+            ctx.fillStyle = '#aaaaaa';
+            ctx.fillText('Valid until: ' + currentQR.expiryDate, W / 2, bY + 56);
+
+            // Footer bar
+            ctx.fillStyle = '#f9fafb';
+            roundRect(ctx, 0, H - 56, W, 56, [0, 0, 20, 20]);
+            ctx.fill();
+            ctx.strokeStyle = '#eeeeee'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(0, H - 56); ctx.lineTo(W, H - 56); ctx.stroke();
+            ctx.font = '11px "Segoe UI", Arial, sans-serif';
+            ctx.fillStyle = '#aaaaaa';
+            ctx.fillText('Scan QR code to verify this certification online', W / 2, H - 30);
+            ctx.fillStyle = '#bbbbbb';
+            ctx.fillText('Halal Certification & Verification Hub', W / 2, H - 13);
+
+            // Download
+            const link = document.createElement('a');
+            link.download = 'HalalCert_' + currentQR.certNum.replace(/[^a-z0-9]/gi, '_') + '.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        };
+        qrImage.src = qrDataUrl;
+    }, 150);
+}
+
+// Canvas rounded rect helper (polyfill for older browsers)
+function roundRect(ctx, x, y, w, h, r) {
+    if (typeof r === 'number') r = [r, r, r, r];
+    ctx.beginPath();
+    ctx.moveTo(x + r[0], y);
+    ctx.lineTo(x + w - r[1], y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r[1]);
+    ctx.lineTo(x + w, y + h - r[2]);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r[2], y + h);
+    ctx.lineTo(x + r[3], y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r[3]);
+    ctx.lineTo(x, y + r[0]);
+    ctx.quadraticCurveTo(x, y, x + r[0], y);
+    ctx.closePath();
+}
+
+// Wrap long text, returns new Y after last line
+function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+    const words = text.split(' ');
+    let line = '';
+    for (let i = 0; i < words.length; i++) {
+        const test = line + words[i] + ' ';
+        if (ctx.measureText(test).width > maxWidth && i > 0) {
+            ctx.fillText(line.trim(), x, y);
+            line = words[i] + ' ';
+            y += lineHeight;
+        } else {
+            line = test;
+        }
+    }
+    ctx.fillText(line.trim(), x, y);
+    return y;
+}
+
+// Event delegation — handles all .qr-btn clicks via data attributes
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.qr-btn');
+    if (btn) {
+        showQR(
+            btn.dataset.url,
+            btn.dataset.cert,
+            btn.dataset.biz,
+            btn.dataset.status,
+            btn.dataset.expiry
+        );
+    }
+});
+
+document.getElementById('qrModalBg').addEventListener('click', function(e) {
+    if (e.target === this) closeQR();
+});
+</script>
 
 </body>
 </html>

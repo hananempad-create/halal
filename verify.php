@@ -7,9 +7,12 @@ $result_data = null;
 $search_val  = '';
 $search_type = 'qr';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $search_val  = trim($_POST['search_val']);
-    $search_type = $_POST['search_type'];
+// Support GET params so QR scan (which encodes a URL) auto-triggers verification
+$is_get_scan = ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['search_val']));
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' || $is_get_scan) {
+    $search_val  = $is_get_scan ? trim($_GET['search_val'])  : trim($_POST['search_val']);
+    $search_type = $is_get_scan ? trim($_GET['search_type']) : $_POST['search_type'];
     $ip          = $_SERVER['REMOTE_ADDR'];
     $outcome     = 'Invalid';
     $cert_row    = null;
